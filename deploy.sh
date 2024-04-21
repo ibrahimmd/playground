@@ -6,6 +6,8 @@ NGINX_INGRESS_HELM_REPO="https://kubernetes.github.io/ingress-nginx"
 NGINX_INGRESS_HELM_REPO_NAME="ingress-nginx"
 NGINX_INGRESS_HELM_CHART_NAME="ingress-nginx"
 NGINX_INGRESS_HELM_VERSION=4.10.0
+PROMETHEUS_NAMESPACE="monitoring"
+PROMETHEUS_HELM_VERSION=25.20.0
 LOG_LEVEL="INFO"
 
 alias k=kubectl
@@ -40,6 +42,7 @@ function init() {
 
 
 function create_kind_cluster() {
+    log "INFO" "installing kind cluster"
     # spin up kind cluster
     kind create cluster --config config/kind.yaml
 }
@@ -48,21 +51,40 @@ function deploy_nginx_ingress() {
     # install nginx ingress in ingress-nginx namespace
     # k apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_BRANCH}/deploy/static/provider/kind/deploy.yaml
 
+    log "INFO" "deploying nginx ingress"
+
     kubectl create ns ${NGINX_INGRESS_NAMESPACE}
     helm repo add ${NGINX_INGRESS_HELM_REPO_NAME} ${NGINX_INGRESS_HELM_REPO}
     helm upgrade -i ${NGINX_INGRESS_HELM_CHART_NAME} ${NGINX_INGRESS_HELM_REPO_NAME}/${NGINX_INGRESS_HELM_CHART_NAME} \
         --version ${NGINX_INGRESS_HELM_VERSION} \
         -n ${NGINX_INGRESS_NAMESPACE} \
         -f config/ingress-nginx.yaml
+
+    # wait till nginx controller is up
+    kubectl rollout status deploy ingress-nginx-controller -n ${NGINX_INGRESS_NAMESPACE} -w
+}
+
+function deploy_app(){
+    log "INFO" "deploying app"
+    kubectl apply -f config/httpecho.yaml
 }
 
 function deploy_prometheus() {
     log "WARNING" "deploying prometheus"
+
+    kubectl create ns ${PROMETHEUS_NAMESPACE}
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm upgrade -i prometheus-operator-crds prometheus-community/prometheus-operator-crds -n monitoring
+    helm upgrade -i prometheus prometheus-community/prometheus \
+        --version ${PROMETHEUS_HELM_VERSION} \
+        -n ${PROMETHEUS_NAMESPACE} \
+        -f config/prometheus.yaml
 }
 
-init
-create_kind_cluster
-deploy_nginx_ingress
+# init
+# create_kind_cluster
+# deploy_nginx_ingress
+# deploy_app
 deploy_prometheus
 
 

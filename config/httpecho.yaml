@@ -1,4 +1,10 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  labels: {}
+  name: app
+---
+apiVersion: v1
 automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
@@ -51,6 +57,11 @@ spec:
           limits:
             cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
             memory: 64M
+      serviceAccountName: http-echo-bar
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+        role: app
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -87,6 +98,9 @@ spec:
             memory: 64M
       serviceAccountName: http-echo-bar
       automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+        role: app
 ---
 apiVersion: v1
 kind: Service
@@ -122,21 +136,22 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: http-echo
-  annotations: {}
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
   namespace: app
 spec:
   ingressClassName: "nginx"
   rules:
   - http:
       paths:
-      - path: /foo(/|$)(.*)
+      - path: /foo$
         pathType: ImplementationSpecific
         backend:
           service:
             name: http-echo-foo
             port:
               name: http
-      - path: /bar(/|$)(.*)
+      - path: /bar$
         pathType: ImplementationSpecific
         backend:
           service:

@@ -6,9 +6,17 @@ nodes:
   image: kindest/node:v1.29.2
 - role: worker
   image: kindest/node:v1.29.2
+  # extraPortMappings:
+  # - containerPort: 80
+  #   hostPort: 8080
+  #   protocol: TCP
   labels:
     role: "ingress-nginx"
 - role: worker
   image: kindest/node:v1.29.2
   labels:
     role: "prometheus"
+- role: worker
+  image: kindest/node:v1.29.2
+  labels:
+    role: "app"

@@ -1,0 +1,143 @@
+apiVersion: v1
+automountServiceAccountToken: true
+kind: ServiceAccount
+metadata:
+  labels:
+    app: http-echo
+    instance: foo
+  name: http-echo-foo
+  namespace: app
+---
+apiVersion: v1
+automountServiceAccountToken: true
+kind: ServiceAccount
+metadata:
+  labels:
+    app: http-echo
+    instance: bar
+  name: http-echo-bar
+  namespace: app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-echo-foo
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-echo
+      instance: foo
+  template:
+    metadata:
+      labels:
+        app: http-echo
+        instance: foo
+    spec:
+      containers:
+      - name: http-echo
+        image: hashicorp/http-echo
+        args:
+        - "-text=foo"
+        - "-listen=8080"
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64m
+          limits:
+            cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
+            memory: 64m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-echo-bar
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-echo
+      instance: bar
+  template:
+    metadata:
+      labels:
+        app: http-echo
+        instance: bar
+    spec:
+      containers:
+      - name: http-echo
+        image: hashicorp/http-echo
+        args:
+        - "-text=bar"
+        - "-listen=8080"
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64m
+          limits:
+            cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
+            memory: 64m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-echo-foo
+  namespace: app
+spec:
+  selector:
+    app: http-echo
+    instance: foo
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-echo-bar
+  namespace: app
+spec:
+  selector:
+    app: http-echo
+    instance: bar
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: http-echo
+  annotations: {}
+  namespace: app
+spec:
+  ingressClassName: "nginx"
+  rules:
+  - http:
+      paths:
+      - path: /foo(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: http-echo-foo
+            port:
+              name: http
+      - path: /bar(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: http-echo-bar
+            port:
+              name: http

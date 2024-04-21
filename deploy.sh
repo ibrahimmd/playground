@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 KIND_K8S_VERSION=1.29.2
 #INGRESS_NGINX_BRANCH=release-1.10   # don't use main/master branch as it may not be compatibe with k8s version
 NGINX_INGRESS_NAMESPACE="nginx-ingress"
@@ -48,7 +48,7 @@ function deploy_nginx_ingress() {
     # install nginx ingress in ingress-nginx namespace
     # k apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_BRANCH}/deploy/static/provider/kind/deploy.yaml
 
-    k create ns ${NGINX_INGRESS_NAMESPACE}
+    kubectl create ns ${NGINX_INGRESS_NAMESPACE}
     helm repo add ${NGINX_INGRESS_HELM_REPO_NAME} ${NGINX_INGRESS_HELM_REPO}
     helm upgrade -i ${NGINX_INGRESS_HELM_CHART_NAME} ${NGINX_INGRESS_HELM_REPO_NAME}/${NGINX_INGRESS_HELM_CHART_NAME} \
         --version ${NGINX_INGRESS_HELM_VERSION} \

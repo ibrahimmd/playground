@@ -9,9 +9,8 @@ automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
   labels:
-    app: http-echo
-    instance: foo
-  name: http-echo-foo
+    app: foo
+  name: foo
   namespace: app
 ---
 apiVersion: v1
@@ -19,27 +18,24 @@ automountServiceAccountToken: false
 kind: ServiceAccount
 metadata:
   labels:
-    app: http-echo
-    instance: bar
-  name: http-echo-bar
+    app: bar
+  name: bar
   namespace: app
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: http-echo-foo
+  name: foo
   namespace: app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: http-echo
-      instance: foo
+      app: foo
   template:
     metadata:
       labels:
-        app: http-echo
-        instance: foo
+        app: foo
     spec:
       containers:
       - name: http-echo
@@ -57,7 +53,7 @@ spec:
           limits:
             cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
             memory: 64M
-      serviceAccountName: http-echo-bar
+      serviceAccountName: foo
       automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/os: linux
@@ -66,19 +62,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: http-echo-bar
+  name: bar
   namespace: app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: http-echo
-      instance: bar
+      app: bar
   template:
     metadata:
       labels:
-        app: http-echo
-        instance: bar
+        app: bar
     spec:
       containers:
       - name: http-echo
@@ -96,7 +90,7 @@ spec:
           limits:
             cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
             memory: 64M
-      serviceAccountName: http-echo-bar
+      serviceAccountName: bar
       automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/os: linux
@@ -105,12 +99,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: http-echo-foo
+  name: foo
   namespace: app
 spec:
   selector:
-    app: http-echo
-    instance: foo
+    app: foo
   ports:
   - name: http
     protocol: TCP
@@ -120,12 +113,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: http-echo-bar
+  name: bar
   namespace: app
 spec:
   selector:
-    app: http-echo
-    instance: bar
+    app: bar
   ports:
   - name: http
     protocol: TCP
@@ -135,7 +127,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: http-echo
+  name: app
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
   namespace: app
@@ -148,13 +140,13 @@ spec:
         pathType: ImplementationSpecific
         backend:
           service:
-            name: http-echo-foo
+            name: foo
             port:
               name: http
       - path: /bar$
         pathType: ImplementationSpecific
         backend:
           service:
-            name: http-echo-bar
+            name: bar
             port:
               name: http

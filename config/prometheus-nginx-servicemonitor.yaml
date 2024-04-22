@@ -3,6 +3,8 @@ kind: ServiceMonitor
 metadata:
   name: ingress-nginx
   namespace: nginx-ingress
+  labels:
+    release: prometheus
 spec:
   selector:
     matchLabels:

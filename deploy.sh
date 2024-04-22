@@ -7,7 +7,7 @@ NGINX_INGRESS_HELM_REPO_NAME="ingress-nginx"
 NGINX_INGRESS_HELM_CHART_NAME="ingress-nginx"
 NGINX_INGRESS_HELM_VERSION=4.10.0
 PROMETHEUS_NAMESPACE="monitoring"
-PROMETHEUS_HELM_VERSION=25.20.0
+PROMETHEUS_HELM_VERSION=58.2.1
 LOG_LEVEL="INFO"
 
 alias k=kubectl
@@ -66,7 +66,7 @@ function deploy_nginx_ingress() {
 
 function deploy_app(){
     log "INFO" "deploying app"
-    kubectl apply -f config/httpecho.yaml
+    kubectl apply -f config/app.yaml
 }
 
 function deploy_prometheus() {
@@ -74,11 +74,17 @@ function deploy_prometheus() {
 
     kubectl create ns ${PROMETHEUS_NAMESPACE}
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-    helm upgrade -i prometheus-operator-crds prometheus-community/prometheus-operator-crds -n monitoring
-    helm upgrade -i prometheus prometheus-community/prometheus \
+    # helm upgrade -i prometheus-operator-crds prometheus-community/prometheus-operator-crds -n monitoring
+    # helm upgrade -i prometheus prometheus-community/prometheus \
+    #     --version ${PROMETHEUS_HELM_VERSION} \
+    #     -n ${PROMETHEUS_NAMESPACE} \
+    #     -f config/prometheus.yaml
+
+    helm upgrade -i prometheus prometheus-community/kube-prometheus-stack \
         --version ${PROMETHEUS_HELM_VERSION} \
         -n ${PROMETHEUS_NAMESPACE} \
-        -f config/prometheus.yaml
+        -f config/kube-prometheus-stack.yaml
+
 }
 
 # init
@@ -86,8 +92,3 @@ function deploy_prometheus() {
 # deploy_nginx_ingress
 # deploy_app
 deploy_prometheus
-
-
-
-
-

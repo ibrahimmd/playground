@@ -87,8 +87,8 @@ function deploy_prometheus() {
 
 }
 
-# init
-# create_kind_cluster
-# deploy_nginx_ingress
-# deploy_app
+init
+create_kind_cluster
+deploy_nginx_ingress
+deploy_app
 deploy_prometheus

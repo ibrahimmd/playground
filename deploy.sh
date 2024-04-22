@@ -64,13 +64,8 @@ function deploy_nginx_ingress() {
     kubectl rollout status deploy ingress-nginx-controller -n ${NGINX_INGRESS_NAMESPACE} -w
 }
 
-function deploy_app(){
-    log "INFO" "deploying app"
-    kubectl apply -f config/app.yaml
-}
-
 function deploy_prometheus() {
-    log "WARNING" "deploying prometheus"
+    log "INFO" "deploying prometheus"
 
     kubectl create ns ${PROMETHEUS_NAMESPACE}
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -87,8 +82,20 @@ function deploy_prometheus() {
 
 }
 
+function deploy_app(){
+    log "INFO" "deploying app"
+    kubectl apply -f config/app.yaml
+}
+
+function deploy_servicemonitors(){
+    log "INFO" "deploying servicemonitors"
+    kubectl apply -f config/prometheus-nginx-servicemonitor.yaml
+}
+
+
 init
 create_kind_cluster
 deploy_nginx_ingress
-deploy_app
 deploy_prometheus
+deploy_app
+deploy_servicemonitors

@@ -47,8 +47,8 @@ customRules: {}
 defaultRules:
   create: true
   rules:
-    alertmanager: true
-    etcd: true
+    alertmanager: false
+    etcd: false
     configReloaders: true
     general: true
     k8sContainerCpuUsageSecondsTotal: true

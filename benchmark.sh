@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 function start_k8s_port_forward() {
     local svc_name=$1
     local local_port=$2
@@ -30,15 +32,32 @@ function stop_k8s_port_forward() {
     echo "Port forwarding stopped"
 }
 
+
+function promql_metrics() {
+
+    echo v_1
+    v_avg_requests=$(curl 'http://localhost:8080/api/v1/query?query=rate(nginx_ingress_controller_nginx_process_requests_total[1m])' -g -s | jq '.data.result[0].value[1]')
+    echo v_2
+    v_avg_memory=$(curl 'http://localhost:8080/api/v1/query?query=avg_over_time(container_memory_usage_bytes{namespace="nginx-ingress",container="controller"}[1m])' -g -s | jq '.data.result[0].value[1]')
+    echo v_3
+    v_avg_cpu=$(curl 'http://localhost:8080/api/v1/query' --get --data-urlencode 'query=1-rate(container_cpu_usage_seconds_total{namespace="nginx-ingress",container="controller"}[1m])' -s | jq '.data.result[0].value[1]')
+
+    printf "%s,%s,%s\n" ${v_avg_requests} ${v_avg_memory} ${v_avg_cpu} > metrics.csv
+}
+
 function main() {
     echo going to port forward
     port_forward_pid=$(start_k8s_port_forward ingress-nginx-controller 8080 80 nginx-ingress)
 
     echo starting
-    ab -n 500 -c 10 http://localhost:8080/foo
-    ab -n 500 -c 10 http://localhost:8080/bar
+    ab -n 100 -c 10 http://localhost:8080/foo
+    ab -n 100 -c 10 http://localhost:8080/bar
 
-    # stop_k8s_port_forward $port_forward_pid
+    promql_metrics
+
+
+    stop_k8s_port_forward $port_forward_pid
 }
+
 
 main

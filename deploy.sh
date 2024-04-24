@@ -12,34 +12,23 @@ LOG_LEVEL="INFO"
 
 alias k=kubectl
 
-function log() {
-    local log_level=$1
-    local message=$2
-    local timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-
-    local log_levels=("DEBUG" "INFO" "WARNING" "ERROR" "FATAL")
-
-    # if [[ " ${log_levels[@]} " =~ " ${log_level} " ]]; then
-    #     # Determine if the message should be printed based on log level
-    #     if [[ "${log_levels[@]/$log_level/}" == "${log_levels[@]/#*/}" ]]; then
-    #         # If the log level is greater than or equal to the threshold log level, print the message
-    #         if [[ "${log_levels[@]/$log_level/}" == "${log_levels[@]/$LOG_LEVEL/}" ]]; then
-    #             printf "[%s] [%s] %s\n" "${timestamp}" "${log_level}" "${message}"
-    #         fi
-    #     fi
-    # else
-    #     # If an invalid log level is provided, print a warning
-    #     echo "[$timestamp] [WARNING] Invalid log level: $log_level"
-    #     printf "[%s] [%s] %s\n" "${timestamp}" "WARNING" "Invalid log level: ${log_level}"
-    # fi
-
-    printf "[%s] %-10s %s\n" "${timestamp}" "[${log_level}]" "${message}"
-}
+source ./lib.sh
 
 function init() {
     log "INFO" "doing init"
 }
 
+function preflight_checks() {
+
+    log "INFO" "preflight checks"
+
+    # FIXME: not following DRY principle
+    ok=$(cmd_exists kind)    ; [ $ok -eq 0 ] || log "ERROR" "kind command does not exist"
+    ok=$(cmd_exists docker)  ; [ $ok -eq 0 ] || log "ERROR" "docker command does not exist"
+    ok=$(cmd_exists helm)    ; [ $ok -eq 0 ] || log "ERROR" "helm command does not exist"
+    ok=$(cmd_exists kubectl) ; [ $ok -eq 0 ] || log "ERROR" "kubectl command does not exist"
+
+}
 
 function create_kind_cluster() {
     log "INFO" "installing kind cluster"
@@ -48,13 +37,11 @@ function create_kind_cluster() {
 }
 
 function deploy_nginx_ingress() {
-    # install nginx ingress in ingress-nginx namespace
-    # k apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/${INGRESS_NGINX_BRANCH}/deploy/static/provider/kind/deploy.yaml
-
     log "INFO" "deploying nginx ingress"
 
     kubectl create ns ${NGINX_INGRESS_NAMESPACE}
     helm repo add ${NGINX_INGRESS_HELM_REPO_NAME} ${NGINX_INGRESS_HELM_REPO}
+    helm repo update ${NGINX_INGRESS_HELM_REPO_NAME}
     helm upgrade -i ${NGINX_INGRESS_HELM_CHART_NAME} ${NGINX_INGRESS_HELM_REPO_NAME}/${NGINX_INGRESS_HELM_CHART_NAME} \
         --version ${NGINX_INGRESS_HELM_VERSION} \
         -n ${NGINX_INGRESS_NAMESPACE} \
@@ -69,11 +56,7 @@ function deploy_prometheus() {
 
     kubectl create ns ${PROMETHEUS_NAMESPACE}
     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-    # helm upgrade -i prometheus-operator-crds prometheus-community/prometheus-operator-crds -n monitoring
-    # helm upgrade -i prometheus prometheus-community/prometheus \
-    #     --version ${PROMETHEUS_HELM_VERSION} \
-    #     -n ${PROMETHEUS_NAMESPACE} \
-    #     -f config/prometheus.yaml
+    helm repo update prometheus-community
 
     helm upgrade -i prometheus prometheus-community/kube-prometheus-stack \
         --version ${PROMETHEUS_HELM_VERSION} \
@@ -84,6 +67,8 @@ function deploy_prometheus() {
 
 function deploy_app(){
     log "INFO" "deploying app"
+
+    # FIXME: should be moved to helm chart
     kubectl apply -f config/app.yaml
 }
 
@@ -94,6 +79,7 @@ function deploy_servicemonitors(){
 
 
 init
+preflight_checks
 create_kind_cluster
 deploy_nginx_ingress
 deploy_prometheus

@@ -1,0 +1,180 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels: {}
+  name: app
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app: foo
+  name: foo
+  namespace: app
+---
+apiVersion: v1
+automountServiceAccountToken: false
+kind: ServiceAccount
+metadata:
+  labels:
+    app: bar
+  name: bar
+  namespace: app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foo
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+  template:
+    metadata:
+      labels:
+        app: foo
+    spec:
+      containers:
+      - name: foo
+        image: hashicorp/http-echo
+        args:
+        - "-text=foo"
+        - "-listen=:8080"
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64M
+          limits:
+            cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
+            memory: 64M
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          failureThreshold: 3
+      serviceAccountName: foo
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+        role: app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bar
+  namespace: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bar
+  template:
+    metadata:
+      labels:
+        app: bar
+    spec:
+      containers:
+      - name: bar
+        image: hashicorp/http-echo
+        args:
+        - "-text=bar"
+        - "-listen=:8080"
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64M
+          limits:
+            cpu: 20m    # WARNING: not always a good idea to set cpu limits, know what you are doing
+            memory: 64M
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          failureThreshold: 3
+      serviceAccountName: bar
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
+        role: app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+  namespace: app
+spec:
+  selector:
+    app: foo
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bar
+  namespace: app
+spec:
+  selector:
+    app: bar
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  namespace: app
+spec:
+  ingressClassName: "nginx"
+  rules:
+  - http:
+      paths:
+      - path: /foo$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: foo
+            port:
+              name: http
+      - path: /bar$
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: bar
+            port:
+              name: http

@@ -38,7 +38,7 @@ spec:
         app: foo
     spec:
       containers:
-      - name: http-echo
+      - name: foo
         image: hashicorp/http-echo
         args:
         - "-text=foo"
@@ -89,7 +89,7 @@ spec:
         app: bar
     spec:
       containers:
-      - name: http-echo
+      - name: bar
         image: hashicorp/http-echo
         args:
         - "-text=bar"

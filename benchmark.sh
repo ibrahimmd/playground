@@ -13,10 +13,10 @@ function preflight_checks() {
 
     # FIXME: not following DRY principle
     ok=$(cmd_exists kubectl)    ; [ $ok -eq 0 ] || log "ERROR" "kubectl command does not exist"
-    ok=$(cmd_exists nc)         ; [ $ok -eq 0 ] || log "ERROR" "nc command does not exist"    
-    ok=$(cmd_exists ab)         ; [ $ok -eq 0 ] || log "ERROR" "ab command does not exist"        
-    ok=$(cmd_exists jq)         ; [ $ok -eq 0 ] || log "ERROR" "jq command does not exist"            
-}    
+    ok=$(cmd_exists nc)         ; [ $ok -eq 0 ] || log "ERROR" "nc command does not exist"
+    ok=$(cmd_exists ab)         ; [ $ok -eq 0 ] || log "ERROR" "ab command does not exist"
+    ok=$(cmd_exists jq)         ; [ $ok -eq 0 ] || log "ERROR" "jq command does not exist"
+}
 
 function start_k8s_port_forward() {
     local svc_name=$1
@@ -66,16 +66,29 @@ function promql_metrics() {
     v_avg_cpu=$(curl 'http://localhost:8080/api/v1/query' --get --data-urlencode 'query=1-rate(container_cpu_usage_seconds_total{namespace="nginx-ingress",container="controller"}[1m])' -s | jq -r '.data.result[0].value[1]')
 
     log "INFO" "writing metrics to metrics.csv"
-    printf "%s,%s,%s\n" ${v_avg_requests} ${v_avg_memory} ${v_avg_cpu} > metrics.csv
+    [ ! -f metrics.csv ] && echo "avg_requests,avg_memory,avg_cpu" > metrics.csv
+    printf "%s,%s,%s\n" ${v_avg_requests} ${v_avg_memory} ${v_avg_cpu} >> metrics.csv
 }
 
-function main() {    
-    
+function prompt_user() {
+    echo "You should be able to access the following urls:"
+    echo "http://localhost:8080/foo     - foo service"
+    echo "http://localhost:8080/bar     - bar service"
+    echo "http://localhost:8080/graph   - promql"
+    read -p "Press any key to continue and close the forwarded port..." -n1 -s
+    echo
+}
+
+function main() {
+
     init
     preflight_checks
-    
+
     log "INFO" "going to port forward nginx ingress port"
     port_forward_pid=$(start_k8s_port_forward ingress-nginx-controller 8080 80 nginx-ingress)
+
+    # write metrics before calling ab
+    promql_metrics
 
     log "INFO" "starting benchmark for /foo"
     ab -n 100 -c 10 http://localhost:8080/foo
@@ -83,9 +96,13 @@ function main() {
     log "INFO" "starting benchmark for /bar"
     ab -n 100 -c 10 http://localhost:8080/bar
 
-    sleep 5
+    # scraping is every 60 seconds, so we wait a bit longer before pulling metrics again
+    sleep 75
 
+    # write metrics after calling ab
     promql_metrics
+
+    prompt_user
 
     stop_k8s_port_forward $port_forward_pid
 }

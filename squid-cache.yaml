@@ -1,0 +1,143 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squid-cache
+  labels:
+    app: squid-cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: squid-cache
+  template:
+    metadata:
+      labels:
+        app: squid-cache
+    spec:
+      containers:
+        - name: squid-cache
+          image: ubuntu/squid:5.2-22.04_beta
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3128
+          volumeMounts:
+            - name: config
+              mountPath: /etc/squid
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256M
+            limits:
+              memory: 256M
+        - name: access-log
+          image: alpine/socat:1.7.4.4
+          imagePullPolicy: IfNotPresent
+          args:
+           - "stdio"
+           - "udp-listen:15140,fork"
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64M
+            limits:
+              memory: 64M
+      nodeSelector:
+        role: app
+      volumes:
+        - name: config
+          configMap:
+            name: squid-cache
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tmp-shell
+  labels:
+    app: tmp-shell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tmp-shell
+  template:
+    metadata:
+      labels:
+        app: tmp-shell
+    spec:
+      containers:
+        - name: tmp-shell
+          image: nicolaka/netshoot
+          imagePullPolicy: IfNotPresent
+          args:
+           - "sleep"
+           - "infinity"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64M
+            limits:
+              memory: 64M
+      nodeSelector:
+        role: app
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squid-cache
+data:
+  squid.conf: |
+    # WARNING: this config is not meant for production use
+    # common settings
+    http_port 3128
+    workers 1
+
+    # network
+    acl k8s_pod       src 10.244.0.0/16   # kind pod ip range
+    acl k8s_svc       src 10.96.0.0/12    # kind service ip range
+
+    # whitelist domains
+    acl whitelist dstdomain ifconfig.me
+    acl whitelist dstdomain httpbin.org
+
+    # acl
+    acl safe_ports port 80
+    acl safe_ports port 443
+    acl CONNECT method CONNECT
+
+    acl success_codes http_status 100-199 # informational
+    acl success_codes http_status 200-299 # successful transactions
+    acl success_codes http_status 300-399 # redirection
+    acl failure_codes http_status 400-499 # client error
+    acl failure_codes http_status 500-599 # server error
+    acl success_hier hier_code HIER_DIRECT
+    acl failure_hier hier_code HIER_NONE
+    acl failure all-of CONNECT failure_hier
+    acl failure all-of !CONNECT failure_codes
+    acl success all-of CONNECT success_hier
+    acl success all-of !CONNECT success_codes
+    acl has_request has request
+
+    http_access allow localhost
+    http_access allow CONNECT k8s_pod whitelist safe_ports
+    http_access deny to_localhost
+    http_access deny !safe_ports
+    http_access deny all
+
+    # logging
+    access_log udp://127.0.0.1:15140 squid has_request
+    cache_log /var/log/squid/cache.log
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: squid-cache
+spec:
+  selector:
+    app: squid-cache
+  ports:
+    - protocol: TCP
+      port: 3128
+      targetPort: 3128
